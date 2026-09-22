@@ -115,13 +115,13 @@
       { id: 62, name: "和田優希", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-02-14-08-45_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
       { id: 63, name: "渡辺惟良", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-02-14-34-11_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" }
     ];
-    
-    let currentRoundCandidates = []; // 現在のラウンドの候補者
+
+    let currentRoundCandidates = []; // 現在画面に出ている候補者
     let currentPage = 0;
-    const pageSize = 4;
+    let pageSize = 4;                // 予選は4人ずつ
     let scores = {};                 // メンバーごとの獲得ポイント
     let round = 1;                   // ラウンド数
-    let isTieBreak = false;          // 延長戦フラグ
+    let isTieBreakMode = false;      // 一騎打ち（延長戦）モードか
 
     // 初期化
     function initApp() {
@@ -148,7 +148,14 @@
         card.className = "card";
         card.innerHTML = `<img src="${m.img}"><div class="name">${m.name}</div>`;
         card.onclick = () => {
-          card.classList.toggle("selected");
+          if (isTieBreakMode) {
+            // 一騎打ちモード時は1人しか選べない（ラジオボタン風）
+            document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
+            card.classList.add("selected");
+          } else {
+            // 予選は複数選択可能
+            card.classList.toggle("selected");
+          }
         };
         card.dataset.id = m.id;
         container.appendChild(card);
@@ -158,22 +165,30 @@
     // 「次へ」ボタンを押したとき
     function nextPage() {
       const selectedCards = document.querySelectorAll(".card.selected");
+      
+      // 一騎打ちモードで未選択の場合は警告
+      if (isTieBreakMode && selectedCards.length === 0) {
+        alert("どちらか好きな方の顔を選んでね！");
+        return;
+      }
+
       selectedCards.forEach(card => {
         const id = parseInt(card.dataset.id);
-        scores[id] = (scores[id] || 0) + 1;
+        // 一騎打ちは加算値を大きくして確実に順位に差をつける
+        scores[id] = (scores[id] || 0) + (isTieBreakMode ? 0.1 : 1);
       });
 
       currentPage++;
       showPage();
     }
 
-    // 1つのラウンドが終わったときの処理
+    // 1つのラウンドが終わったとき（または一騎打ちチェック）
     function finishRound() {
-      // 1点以上獲得したメンバー（＝選ばれた人たち）のみ抽出
+      // 得点（1点以上）を獲得したメンバーを抽出
       const activeMembers = members.filter(m => scores[m.id] > 0);
 
-      // 選ばれた人が一人もいない場合、または1人以下の場合は終了
-      if (activeMembers.length <= 1) {
+      // 選ばれた人が一人もいない場合
+      if (activeMembers.length === 0) {
         showResult();
         return;
       }
@@ -181,42 +196,41 @@
       // 得点が高い順にソート
       activeMembers.sort((a, b) => scores[b.id] - scores[a.id]);
 
-      // 順位かぶり（同点）があるグループを探す
+      // 1位から最大9位（または獲得人数）までの中で「同点ペア」を探す
       const checkLimit = Math.min(activeMembers.length, 9);
-      let tiedMembers = [];
+      let tiePair = null;
 
-      // 1位〜9位（または有効人数）の中で同点になっている人たちを特定
+      // TOP9内部での同点を探す
       for (let i = 0; i < checkLimit - 1; i++) {
-        if (scores[activeMembers[i].id] === scores[activeMembers[i+1].id]) {
-          const targetScore = scores[activeMembers[i].id];
-          tiedMembers = activeMembers.filter(m => scores[m.id] === targetScore);
+        if (Math.abs(scores[activeMembers[i].id] - scores[activeMembers[i+1].id]) < 0.01) {
+          tiePair = [activeMembers[i], activeMembers[i+1]];
           break;
         }
       }
 
-      // Border line (9位と10位) の同点チェック
-      if (tiedMembers.length === 0 && activeMembers.length > 9) {
-        if (scores[activeMembers[8].id] === scores[activeMembers[9].id]) {
-          const targetScore = scores[activeMembers[8].id];
-          tiedMembers = activeMembers.filter(m => scores[m.id] === targetScore);
+      // 9位と10位（ボーダー上）の同点を探す
+      if (!tiePair && activeMembers.length > 9) {
+        if (Math.abs(scores[activeMembers[8].id] - scores[activeMembers[9].id]) < 0.01) {
+          tiePair = [activeMembers[8], activeMembers[9]];
         }
       }
 
-      // 同点が無い、または延長戦が3回を超えたら終了して結果表示！
-      if (tiedMembers.length <= 1 || round >= 4) {
+      // 同点が一切なくなったら完全に1位〜9位が決まったので結果画面へ！
+      if (!tiePair) {
         showResult();
         return;
       }
 
-      // 同点解消のための延長戦へ
+      // 同点がある場合は「1対1の一騎打ちモード」に切り替え
+      isTieBreakMode = true;
+      pageSize = 2; // 2人（1対1）で表示
       round++;
-      isTieBreak = true;
 
-      document.getElementById("round-title").innerText = `順位決定戦 (決戦 第${round - 1}回)`;
-      document.getElementById("round-desc").innerText = `同点になっているメンバーの中から好きな顔を選んで差をつけよう！`;
+      document.getElementById("round-title").innerText = `順位決定戦 (一騎打ち 第${round - 1}回)`;
+      document.getElementById("round-desc").innerText = `同点になっちゃった！どっちの顔がより好き？（1人選択）`;
 
-      // 同点の人だけを対象にしてシャッフル
-      currentRoundCandidates = [...tiedMembers].sort(() => Math.random() - 0.5);
+      // 同点の2人だけを対決させる
+      currentRoundCandidates = tiePair;
       currentPage = 0;
 
       showPage();
@@ -230,13 +244,8 @@
       const container = document.getElementById("result-container");
       container.innerHTML = "";
 
-      // 得点順（完全同点の場合は微小なランダム差を付けて同率を防止）
-      const sortedMembers = [...members].sort((a, b) => {
-        if (scores[b.id] === scores[a.id]) {
-          return Math.random() - 0.5;
-        }
-        return scores[b.id] - scores[a.id];
-      });
+      // 得点順にソート
+      const sortedMembers = [...members].sort((a, b) => scores[b.id] - scores[a.id]);
 
       // TOP 9 を抽出して表示
       const top9 = sortedMembers.slice(0, 9);
