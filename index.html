@@ -5,23 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>好きな顔9選メーカー</title>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #fff5f7; color: #333; margin: 0; padding: 20px; }
-    h1 { color: #d63384; font-size: 22px; margin-bottom: 5px; }
-    .subtitle { color: #666; font-size: 14px; margin-bottom: 15px; }
+    /* 背景を淡い水色に変更 */
+    body { font-family: sans-serif; text-align: center; background: #f0f8ff; color: #333; margin: 0; padding: 20px; }
+    
+    /* メインタイトルとボタンの色を清潔感のある水色・ブルー系に変更 */
+    h1 { color: #008080; font-size: 22px; margin-bottom: 5px; }
+    .subtitle { color: #557788; font-size: 14px; margin-bottom: 15px; }
     
     .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 400px; margin: 0 auto; }
-    .card { background: white; border-radius: 12px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
-    .card.selected { border-color: #d63384; background: #ffe6f0; }
+    .card { background: white; border-radius: 12px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
+    
+    /* 選択したときの枠線と背景色を爽やかな水色に変更 */
+    .card.selected { border-color: #008080; background: #e6f7ff; }
     .card img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; }
     .card .name { font-weight: bold; margin-top: 5px; font-size: 14px; }
     
-    .btn { background: #d63384; color: white; border: none; padding: 12px 24px; border-radius: 20px; font-size: 16px; margin-top: 20px; cursor: pointer; font-weight: bold; }
+    /* ボタンの色をアクセントのミントグリーン〜水色系に変更 */
+    .btn { background: #008080; color: white; border: none; padding: 12px 24px; border-radius: 20px; font-size: 16px; margin-top: 20px; cursor: pointer; font-weight: bold; }
 
     /* 結果画面のスタイル */
     .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 360px; margin: 20px auto; }
     .result-card { background: white; border-radius: 8px; padding: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 12px; position: relative; }
     .result-card img { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; }
-    .rank-badge { position: absolute; top: 2px; left: 2px; background: #d63384; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; }
+    
+    /* 順位バッジの色を水色に変更 */
+    .rank-badge { position: absolute; top: 2px; left: 2px; background: #008080; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; }
   </style>
 </head>
 <body>
