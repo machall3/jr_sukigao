@@ -6,39 +6,46 @@
   <title>好きな顔9選メーカー</title>
   <style>
     body { font-family: sans-serif; text-align: center; background: #fff5f7; color: #333; margin: 0; padding: 20px; }
-    h1 { color: #d63384; font-size: 22px; }
-    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 400px; margin: 20px auto; }
-    .card { background: white; border-radius: 12px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; border: 2px solid transparent; }
+    h1 { color: #d63384; font-size: 22px; margin-bottom: 5px; }
+    .subtitle { color: #666; font-size: 14px; margin-bottom: 15px; }
+    
+    .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 400px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
     .card.selected { border-color: #d63384; background: #ffe6f0; }
     .card img { width: 100%; height: 140px; object-fit: cover; border-radius: 8px; }
     .card .name { font-weight: bold; margin-top: 5px; font-size: 14px; }
-    .btn { background: #d63384; color: white; border: none; padding: 12px 24px; border-radius: 20px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+    
+    .btn { background: #d63384; color: white; border: none; padding: 12px 24px; border-radius: 20px; font-size: 16px; margin-top: 20px; cursor: pointer; font-weight: bold; }
+    .btn:disabled { background: #ccc; }
+
+    /* 結果画面のスタイル */
     .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 360px; margin: 20px auto; }
-    .result-card { background: white; border-radius: 8px; padding: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 12px; }
+    .result-card { background: white; border-radius: 8px; padding: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 12px; position: relative; }
     .result-card img { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; }
-    .rank { background: #ffe6f0; color: #d63384; font-weight: bold; display: inline-block; padding: 2px 6px; border-radius: 10px; margin-bottom: 3px; }
+    .rank-badge { position: absolute; top: 2px; left: 2px; background: #d63384; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; }
   </style>
 </head>
 <body>
 
+  <!-- 診断画面 -->
   <div id="quiz-screen">
-    <h1>好きな顔選抜（予選）</h1>
-    <p>この中で好きな顔を選んでね！（複数OK）</p>
+    <h1 id="round-title">好きな顔選抜 (予選)</h1>
+    <p class="subtitle" id="round-desc">この中で好きな顔を選んでね！（複数OK）</p>
     <div id="card-container" class="card-grid"></div>
-    <button class="btn" onclick="nextPage()">次へ ➔</button>
+    <button id="next-btn" class="btn" onclick="nextPage()">次へ ➔</button>
   </div>
 
+  <!-- 結果画面 -->
   <div id="result-screen" style="display:none;">
-    <h1>あなたの「好きな顔TOP9」</h1>
+    <h1>✨あなたの「好きな顔TOP9」✨</h1>
     <div id="result-container" class="result-grid"></div>
     <button class="btn" onclick="location.reload()">最初からやり直す</button>
   </div>
 
   <script>
-    // メンバーのデータリスト（ここに画像URLと名前を追加していきます）
+    // メンバーのデータリスト 
     const members = [
-      { id: 1, name: "青木滉平", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-56-38-00_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
-      { id: 2, name: "浅井乃我", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-56-53-23_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
+      //     { id: 2, name: "浅井乃我", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-56-53-23_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
       { id: 3, name: "安嶋秀生", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-57-12-17_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
       { id: 4, name: "阿達慶", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-57-34-99_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
       { id: 5, name: "猪狩蒼弥", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-01-04-38-27_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
@@ -101,24 +108,33 @@
       { id: 62, name: "和田優希", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-02-14-08-45_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
       { id: 63, name: "渡辺惟良", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-02-14-34-11_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" }
     ];
-    
-    // メンバーの順番をランダムにシャッフルする処理を追加
-const shuffledMembers = [...members].sort(() => Math.random() - 0.5);
-    
+
+    let currentRoundCandidates = []; // 現在のラウンドの候補者
+    let selectedCandidates = [];     // 選ばれた候補者
     let currentPage = 0;
-    const pageSize = 4; // 1画面に表示する人数
-    let scores = {};
+    const pageSize = 4;
+    let scores = {};                 // メンバーごとの獲得ポイント
+    let round = 1;                   // 現在のラウンド (1: 予選, 2: 本選...)
 
-    members.forEach(m => scores[m.id] = 0);
+    // 初期化
+    function initApp() {
+      members.forEach(m => scores[m.id] = 0);
+      // メンバーをシャッフル
+      currentRoundCandidates = [...members].sort(() => Math.random() - 0.5);
+      showPage();
+    }
 
+    // 画面表示
     function showPage() {
       const container = document.getElementById("card-container");
       container.innerHTML = "";
-      const start = currentPage * pageSize;
-      const pageMembers = shuffledMembers.slice(start, start + pageSize);
 
+      const start = currentPage * pageSize;
+      const pageMembers = currentRoundCandidates.slice(start, start + pageSize);
+
+      // 該当ラウンドの全ページが終わった場合
       if (pageMembers.length === 0) {
-        showResult();
+        finishRound();
         return;
       }
 
@@ -128,45 +144,84 @@ const shuffledMembers = [...members].sort(() => Math.random() - 0.5);
         card.innerHTML = `<img src="${m.img}"><div class="name">${m.name}</div>`;
         card.onclick = () => {
           card.classList.toggle("selected");
-          scores[m.id] = card.classList.contains("selected") ? 1 : 0;
         };
+        card.dataset.id = m.id;
         container.appendChild(card);
       });
     }
 
+    // 「次へ」ボタンを押したとき
     function nextPage() {
+      // 選択されたメンバーにポイント加算＆次のラウンド候補に追加
+      const selectedCards = document.querySelectorAll(".card.selected");
+      selectedCards.forEach(card => {
+        const id = parseInt(card.dataset.id);
+        scores[id] = (scores[id] || 0) + 1; // 1ポイント加算
+
+        const memberObj = members.find(m => m.id === id);
+        if (memberObj && !selectedCandidates.some(sc => sc.id === id)) {
+          selectedCandidates.push(memberObj);
+        }
+      });
+
       currentPage++;
-      if (currentPage * pageSize >= members.length) {
-        showResult();
-      } else {
-        showPage();
-      }
+      showPage();
     }
 
+    // 1つのラウンド（予選・本選など）が終わったときの処理
+    function finishRound() {
+      // 1人も選ばれなかった、または候補が9人以下になった場合は結果へ
+      if (selectedCandidates.length <= 9 || selectedCandidates.length === currentRoundCandidates.length) {
+        showResult();
+        return;
+      }
+
+      // 次のラウンドへ準備
+      round++;
+      document.getElementById("round-title").innerText = `好きな顔選抜 (本選 第${round - 1}回戦)`;
+      document.getElementById("round-desc").innerText = `選ばれたメンバーの中からさらに好きな顔を選んでね！`;
+
+      // 選ばれた人たちだけで再シャッフルして次のラウンドへ
+      currentRoundCandidates = [...selectedCandidates].sort(() => Math.random() - 0.5);
+      selectedCandidates = [];
+      currentPage = 0;
+
+      showPage();
+    }
+
+    // 結果画面の表示 (1位〜9位)
     function showResult() {
       document.getElementById("quiz-screen").style.display = "none";
       document.getElementById("result-screen").style.display = "block";
+
       const container = document.getElementById("result-container");
-      
-      // 得点が高い順（同点ならランダム）にソートしてTOP9を取得
-      const top9 = members
-        .map(m => ({ ...m, score: scores[m.id] }))
-        .sort((a, b) => b.score - a.score || 0.5 - Math.random())
-        .slice(0, 9);
+      container.innerHTML = "";
+
+      // 得点が高い順（同点の場合はランダム）にソート
+      const sortedMembers = [...members].sort((a, b) => {
+        if (scores[b.id] === scores[a.id]) {
+          return Math.random() - 0.5;
+        }
+        return scores[b.id] - scores[a.id];
+      });
+
+      // TOP 9 を抽出して表示
+      const top9 = sortedMembers.slice(0, 9);
 
       top9.forEach((m, index) => {
         const card = document.createElement("div");
         card.className = "result-card";
         card.innerHTML = `
-          <span class="rank">${index + 1}位</span>
+          <div class="rank-badge">${index + 1}</div>
           <img src="${m.img}">
-          <div style="font-weight:bold; margin-top:2px;">${m.name}</div>
+          <div style="font-weight:bold; margin-top:3px;">${m.name}</div>
         `;
         container.appendChild(card);
       });
     }
 
-    showPage();
+    // アプリ起動
+    initApp();
   </script>
 </body>
 </html>
