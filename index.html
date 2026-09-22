@@ -303,12 +303,21 @@
       const container = document.getElementById("result-container");
       container.innerHTML = "";
 
-      // 得点されなかった人も含めて全体の並びを作成
-      const remaining = members.filter(m => !sortedList.some(s => s.id === m.id));
-      const fullList = [...sortedList, ...remaining];
+          // 結果画面の表示 (選ばれた人だけを1位から順に表示)
+    function showResult(sortedList) {
+      document.getElementById("quiz-screen").style.display = "none";
+      document.getElementById("result-screen").style.display = "block";
 
-      // TOP 9 を抽出して表示
-      const top9 = fullList.slice(0, 9);
+      const container = document.getElementById("result-container");
+      container.innerHTML = "";
+
+      // 予選で選ばれた人（sortedList）のみを対象にし、最大9名抽出
+      const top9 = sortedList.slice(0, 9);
+
+      if (top9.length === 0) {
+        container.innerHTML = "<p style='grid-column: span 3;'>誰も選ばれませんでした💦</p>";
+        return;
+      }
 
       top9.forEach((m, index) => {
         const card = document.createElement("div");
