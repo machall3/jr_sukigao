@@ -116,214 +116,402 @@
       { id: 63, name: "渡辺惟良", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-02-14-34-11_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" }
     ];
 
-    let currentRoundCandidates = []; 
-    let currentPage = 0;
-    let pageSize = 4;                // 予選は4人ずつ
-    let scores = {};                 // 予選のカウント用
-    let isTieBreakMode = false;      // 順位決定戦モード
+  
+  let currentRoundCandidates = [];
+  let currentPage = 0;
+  const pageSize = 4;
 
-    // 順位ソート用の変数
-    let activeMembers = [];
-    let sortStack = [];              // マージソート用の作業用スタック
-    let currentPair = null;          // 現在1対1で比較中の2人
-    let compareResults = {};         // 比較結果の記憶 [idA_idB]: 勝者のID
+  // 予選で何票入ったか
+  let scores = {};
 
-    // 初期化
-    function initApp() {
-      members.forEach(m => scores[m.id] = 0);
-      currentRoundCandidates = [...members].sort(() => Math.random() - 0.5);
-      showPage();
-    }
+  // 順位決定用
+  let activeMembers = [];
+  let ranking = [];
+  let rankingIndex = 0;
 
-    // 画面表示
-    function showPage() {
-      const container = document.getElementById("card-container");
-      container.innerHTML = "";
+  // 今比較している2人
+  let currentPair = null;
 
-      if (isTieBreakMode) {
-        // 1対1比較モード
-        pageSize = 2;
-        const pageMembers = currentPair;
+  // すでに比較した組み合わせ
+  let compareResults = {};
 
-        if (!pageMembers) {
-          processSort();
-          return;
-        }
+  // --------------------------------
+  // 初期化
+  // --------------------------------
+  function initApp() {
+    members.forEach(m => scores[m.id] = 0);
 
-        pageMembers.forEach(m => {
-          const card = document.createElement("div");
-          card.className = "card";
-          card.innerHTML = `<img src="${m.img}"><div class="name">${m.name}</div>`;
-          card.onclick = () => {
-            document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
-            card.classList.add("selected");
-          };
-          card.dataset.id = m.id;
-          container.appendChild(card);
-        });
-      } else {
-        // 予選モード（4人ずつ）
-        const start = currentPage * pageSize;
-        const pageMembers = currentRoundCandidates.slice(start, start + pageSize);
+    // メンバーをランダムに並べる
+    currentRoundCandidates = [...members].sort(() => Math.random() - 0.5);
 
-        if (pageMembers.length === 0) {
-          startTieBreakPhase();
-          return;
-        }
+    showPage();
+  }
 
-        pageMembers.forEach(m => {
-          const card = document.createElement("div");
-          card.className = "card";
-          card.innerHTML = `<img src="${m.img}"><div class="name">${m.name}</div>`;
-          card.onclick = () => {
-            card.classList.toggle("selected");
-          };
-          card.dataset.id = m.id;
-          container.appendChild(card);
-        });
-      }
-    }
 
-    // 「次へ」ボタンを押したとき
-    function nextPage() {
-      const selectedCards = document.querySelectorAll(".card.selected");
+  // --------------------------------
+  // 画面表示
+  // --------------------------------
+  function showPage() {
+    const container = document.getElementById("card-container");
+    container.innerHTML = "";
 
-      if (isTieBreakMode) {
-        if (selectedCards.length === 0) {
-          alert("どちらか好きな方の顔を選んでね！");
-          return;
-        }
-        const winnerId = parseInt(selectedCards[0].dataset.id);
-        const loserId = currentPair.find(m => m.id !== winnerId).id;
-        
-        // どちらが勝ったかを記録（ポイントではなく勝敗記録）
-        compareResults[`${winnerId}_${loserId}`] = winnerId;
-        compareResults[`${loserId}_${winnerId}`] = winnerId;
+    // 順位決定モード
+    if (currentPair) {
 
-        // 次の比較へ
-        processSort();
-      } else {
-        selectedCards.forEach(card => {
-          const id = parseInt(card.dataset.id);
-          scores[id] = (scores[id] || 0) + 1;
-        });
+      document.getElementById("round-title").innerText =
+        `順位決定戦`;
 
-        currentPage++;
-        showPage();
-      }
-    }
+      document.getElementById("round-desc").innerText =
+        `この2人なら、どっちの顔が好き？`;
 
-    // 予選終了後の順位決定フェーズの開始
-    function startTieBreakPhase() {
-      // 予選で選ばれた（1点以上の）メンバー
-      activeMembers = members.filter(m => scores[m.id] > 0);
+      currentPair.forEach(m => {
 
-      // 選ばれた人がゼロなら終了
-      if (activeMembers.length === 0) {
-        showResult([]);
-        return;
-      }
-
-      // 予選の得点順にざっくり並べる（同じ得点同士の順位をこれから1対1で決める）
-      activeMembers.sort((a, b) => scores[b.id] - scores[a.id]);
-
-      // 1対1比較モードに切り替え
-      isTieBreakMode = true;
-      document.getElementById("round-title").innerText = `順位決定戦（1対1対決）`;
-      document.getElementById("round-desc").innerText = `1位〜9位を正確に決めるため、好きな顔を1人ずつ選んでね！`;
-
-      // ソート処理の初期構築
-      initMergeSort();
-      processSort();
-    }
-
-    // 効率よく順位を決めるソートアルゴリズム（マージソート準備）
-    function initMergeSort() {
-      // 配列の各要素を1つずつの配列に分解
-      sortStack = activeMembers.map(m => [m]);
-    }
-
-    function processSort() {
-      // 全員の一体化が完了したら結果へ
-      if (sortStack.length <= 1) {
-        const finalSorted = sortStack[0] || activeMembers;
-        showResult(finalSorted);
-        return;
-      }
-
-      // まだ結合されていないペアを取り出す
-      if (!currentMerge) {
-        const left = sortStack.shift();
-        const right = sortStack.shift();
-        currentMerge = { left, right, merged: [] };
-      }
-
-      const { left, right, merged } = currentMerge;
-
-      if (left.length === 0) {
-        sortStack.push(merged.concat(right));
-        currentMerge = null;
-        processSort();
-        return;
-      }
-      if (right.length === 0) {
-        sortStack.push(merged.concat(left));
-        currentMerge = null;
-        processSort();
-        return;
-      }
-
-      const m1 = left[0];
-      const m2 = right[0];
-
-      // 過去に同じ対戦をして勝敗が決まっていればスキップ
-      if (compareResults[`${m1.id}_${m2.id}`]) {
-        const winnerId = compareResults[`${m1.id}_${m2.id}`];
-        if (winnerId === m1.id) {
-          merged.push(left.shift());
-        } else {
-          merged.push(right.shift());
-        }
-        processSort();
-        return;
-      }
-
-      // 未対戦の場合は画面に出してユーザーに選ばせる
-      currentPair = [m1, m2];
-      showPage();
-    }
-
-    let currentMerge = null;
-
-    // 結果画面の表示 (1位〜9位)
-    function showResult(sortedList) {
-      document.getElementById("quiz-screen").style.display = "none";
-      document.getElementById("result-screen").style.display = "block";
-
-      const container = document.getElementById("result-container");
-      container.innerHTML = "";
-
-      // 得点されなかった人も含めて全体の並びを作成
-      const remaining = members.filter(m => !sortedList.some(s => s.id === m.id));
-      const fullList = [...sortedList, ...remaining];
-
-      // TOP 9 を抽出して表示
-      const top9 = fullList.slice(0, 9);
-
-      top9.forEach((m, index) => {
         const card = document.createElement("div");
-        card.className = "result-card";
+
+        card.className = "card";
+
         card.innerHTML = `
-          <div class="rank-badge">${index + 1}</div>
           <img src="${m.img}">
-          <div style="font-weight:bold; margin-top:3px;">${m.name}</div>
+          <div class="name">${m.name}</div>
         `;
+
+        card.dataset.id = m.id;
+
+        card.onclick = () => {
+
+          document
+            .querySelectorAll(".card")
+            .forEach(c => c.classList.remove("selected"));
+
+          card.classList.add("selected");
+        };
+
         container.appendChild(card);
       });
+
+      return;
     }
 
-    // アプリ起動
-    initApp();
+
+    // --------------------------------
+    // 予選
+    // --------------------------------
+
+    document.getElementById("round-title").innerText =
+      "好きな顔選抜";
+
+    document.getElementById("round-desc").innerText =
+      "この中で好きな顔を選んでね！（複数OK）";
+
+    const start = currentPage * pageSize;
+
+    const pageMembers =
+      currentRoundCandidates.slice(start, start + pageSize);
+
+
+    // 予選終了
+    if (pageMembers.length === 0) {
+      startRanking();
+      return;
+    }
+
+
+    pageMembers.forEach(m => {
+
+      const card = document.createElement("div");
+
+      card.className = "card";
+
+      card.innerHTML = `
+        <img src="${m.img}">
+        <div class="name">${m.name}</div>
+      `;
+
+      card.dataset.id = m.id;
+
+      card.onclick = () => {
+        card.classList.toggle("selected");
+      };
+
+      container.appendChild(card);
+    });
+  }
+
+
+  // --------------------------------
+  // 次へ
+  // --------------------------------
+  function nextPage() {
+
+    const selectedCards =
+      document.querySelectorAll(".card.selected");
+
+
+    // --------------------------------
+    // 1対1順位決定
+    // --------------------------------
+    if (currentPair) {
+
+      if (selectedCards.length === 0) {
+
+        alert("どちらか好きな方の顔を選んでね！");
+
+        return;
+      }
+
+
+      const winnerId =
+        parseInt(selectedCards[0].dataset.id);
+
+
+      const loserId =
+        currentPair.find(m => m.id !== winnerId).id;
+
+
+      // 勝敗を記録
+      compareResults[
+        `${winnerId}_${loserId}`
+      ] = winnerId;
+
+
+      compareResults[
+        `${loserId}_${winnerId}`
+      ] = winnerId;
+
+
+      // 順位決定処理を続ける
+      currentPair = null;
+
+      continueRanking();
+
+      return;
+    }
+
+
+    // --------------------------------
+    // 予選
+    // --------------------------------
+
+    selectedCards.forEach(card => {
+
+      const id = parseInt(card.dataset.id);
+
+      scores[id] = (scores[id] || 0) + 1;
+
+    });
+
+
+    currentPage++;
+
+    showPage();
+  }
+
+
+  // --------------------------------
+  // 順位決定開始
+  // --------------------------------
+  function startRanking() {
+
+    // 予選で1票以上入った人
+    activeMembers =
+      members.filter(m => scores[m.id] > 0);
+
+
+    // 誰も選ばれていない場合
+    if (activeMembers.length === 0) {
+
+      alert("少なくとも1人は選んでね！");
+
+      location.reload();
+
+      return;
+    }
+
+
+    /*
+      予選票数の多い順に仮並び。
+
+      これをベースに、1対1比較で
+      順位を確定していく。
+    */
+    activeMembers.sort(
+      (a, b) => scores[b.id] - scores[a.id]
+    );
+
+
+    ranking = [];
+
+    rankingIndex = 0;
+
+    continueRanking();
+  }
+
+
+  // --------------------------------
+  // 順位決定
+  // --------------------------------
+  function continueRanking() {
+
+    /*
+      1位から順番に決めていく。
+
+      その順位の候補を比較して、
+      勝った人をその順位に確定。
+    */
+
+
+    // 9位まで決まったら終了
+    if (
+      ranking.length >= 9 ||
+      ranking.length >= activeMembers.length
+    ) {
+
+      // 残りを予選票数順に追加
+      const remaining =
+        activeMembers.filter(
+          m => !ranking.some(r => r.id === m.id)
+        );
+
+
+      remaining.sort(
+        (a, b) => scores[b.id] - scores[a.id]
+      );
+
+
+      ranking.push(...remaining);
+
+
+      showResult(ranking);
+
+      return;
+    }
+
+
+    /*
+      現在の順位に入れる候補。
+
+      まだ順位が決まっていない人の中から
+      まず1人を仮候補にする。
+    */
+    const remaining =
+      activeMembers.filter(
+        m => !ranking.some(r => r.id === m.id)
+      );
+
+
+    if (remaining.length === 0) {
+
+      showResult(ranking);
+
+      return;
+    }
+
+
+    let best = remaining[0];
+
+
+    /*
+      best と他の候補を1人ずつ比較。
+    */
+    for (let i = 1; i < remaining.length; i++) {
+
+      const opponent = remaining[i];
+
+      const result =
+        compareResults[
+          `${best.id}_${opponent.id}`
+        ];
+
+
+      if (result) {
+
+        // すでに比較済み
+        if (result === opponent.id) {
+          best = opponent;
+        }
+
+        continue;
+      }
+
+
+      /*
+        未比較なら、この2人を画面に出す。
+      */
+      currentPair = [best, opponent];
+
+      showPage();
+
+      return;
+    }
+
+
+    /*
+      全員との比較が終わったら
+      bestを現在順位に確定。
+    */
+    ranking.push(best);
+
+    continueRanking();
+  }
+
+
+  // --------------------------------
+  // 結果表示
+  // --------------------------------
+  function showResult(sortedList) {
+
+    document.getElementById("quiz-screen").style.display =
+      "none";
+
+    document.getElementById("result-screen").style.display =
+      "block";
+
+
+    const container =
+      document.getElementById("result-container");
+
+    container.innerHTML = "";
+
+
+    // 最大9人
+    const top9 =
+      sortedList.slice(0, 9);
+
+
+    top9.forEach((m, index) => {
+
+      const card =
+        document.createElement("div");
+
+      card.className =
+        "result-card";
+
+
+      card.innerHTML = `
+        <div class="rank-badge">
+          ${index + 1}
+        </div>
+
+        <img src="${m.img}">
+
+        <div style="
+          font-weight:bold;
+          margin-top:3px;
+        ">
+          ${m.name}
+        </div>
+      `;
+
+
+      container.appendChild(card);
+    });
+  }
+
+
+  // --------------------------------
+  // アプリ起動
+  // --------------------------------
+  initApp();
   </script>
 </body>
 </html>
