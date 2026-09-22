@@ -304,17 +304,22 @@
 
     // 結果画面の表示 (1位〜9位)
     function showResult(sortedList) {
+        // 結果画面の表示 (選ばれた人だけの中で1位〜9位)
+    function showResult(sortedList) {
       document.getElementById("quiz-screen").style.display = "none";
       document.getElementById("result-screen").style.display = "block";
 
       const container = document.getElementById("result-container");
       container.innerHTML = "";
 
-      const remaining = members.filter(m => !sortedList.some(s => s.id === m.id));
-      const fullList = [...sortedList, ...remaining];
+      // 予選で選ばれた人（sortedList）だけを対象にする！
+      // 選ばれていない人は絶対に追加しない
+      const top9 = sortedList.slice(0, 9);
 
-      // TOP 9 を抽出して表示
-      const top9 = fullList.slice(0, 9);
+      if (top9.length === 0) {
+        container.innerHTML = "<p>誰一人選ばれませんでした💦</p>";
+        return;
+      }
 
       top9.forEach((m, index) => {
         const card = document.createElement("div");
@@ -326,7 +331,6 @@
         `;
         container.appendChild(card);
       });
-    }
 
     // アプリ起動
     initApp();
