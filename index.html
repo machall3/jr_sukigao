@@ -115,7 +115,7 @@ const shuffledMembers = [...members].sort(() => Math.random() - 0.5);
       const container = document.getElementById("card-container");
       container.innerHTML = "";
       const start = currentPage * pageSize;
-      const pageMembers = members.slice(start, start + pageSize);
+      const pageMembers = shuffledMembers.slice(start, start + pageSize);
 
       if (pageMembers.length === 0) {
         showResult();
