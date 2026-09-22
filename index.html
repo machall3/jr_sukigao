@@ -50,7 +50,7 @@
   </div>
 
   <script>
-    // メンバーのデータリスト (あなたの作ったリストをここに貼ります)
+    // メンバーのデータリスト
     const members = [
       { id: 2, name: "浅井乃我", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-56-53-23_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
       { id: 3, name: "安嶋秀生", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-57-12-17_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
@@ -126,7 +126,8 @@
     let activeMembers = [];
     let sortStack = [];              // マージソート用の作業用スタック
     let currentPair = null;          // 現在1対1で比較中の2人
-    let compareResults = {};         // 比較結果の記憶 [idA_idB]: 勝者のID
+    let compareResults = {};         // 比較結果の記憶
+    let currentMerge = null;
 
     // 初期化
     function initApp() {
@@ -142,7 +143,6 @@
 
       if (isTieBreakMode) {
         // 1対1比較モード
-        pageSize = 2;
         const pageMembers = currentPair;
 
         if (!pageMembers) {
@@ -196,7 +196,7 @@
         const winnerId = parseInt(selectedCards[0].dataset.id);
         const loserId = currentPair.find(m => m.id !== winnerId).id;
         
-        // どちらが勝ったかを記録（ポイントではなく勝敗記録）
+        // どちらが勝ったかを記憶
         compareResults[`${winnerId}_${loserId}`] = winnerId;
         compareResults[`${loserId}_${winnerId}`] = winnerId;
 
@@ -215,43 +215,71 @@
 
     // 予選終了後の順位決定フェーズの開始
     function startTieBreakPhase() {
-      // 予選で選ばれた（1点以上の）メンバー
-      activeMembers = members.filter(m => scores[m.id] > 0);
+      // 1点以上選ばれた予選突破者
+      let winners = members.filter(m => scores[m.id] > 0);
 
       // 選ばれた人がゼロなら終了
-      if (activeMembers.length === 0) {
+      if (winners.length === 0) {
         showResult([]);
         return;
       }
 
-      // 予選の得点順にざっくり並べる（同じ得点同士の順位をこれから1対1で決める）
-      activeMembers.sort((a, b) => scores[b.id] - scores[a.id]);
+      // 得点順にソート（高得点順）
+      winners.sort((a, b) => scores[b.id] - scores[a.id]);
+
+      // 9人に絞り込む処理
+      if (winners.length > 9) {
+        // 9位の得点を取得
+        const ninthScore = scores[winners[8].id];
+        // 9位より明確に高い得点の人たち
+        const safePass = winners.filter(m => scores[m.id] > ninthScore);
+        // 9位と同点の人たち
+        const tieMembers = winners.filter(m => scores[m.id] === ninthScore);
+
+        // 確定組だけでは9人に足りない枠数を計算
+        const needed = 9 - safePass.length;
+
+        if (needed === tieMembers.length) {
+          // ちょうど9人の場合
+          activeMembers = winners.slice(0, 9);
+        } else {
+          // ボーダーライン上の同点メンバーをシャッフルして必要な人数だけ抽出し、TOP9を決める
+          const selectedTie = tieMembers.sort(() => Math.random() - 0.5).slice(0, needed);
+          activeMembers = [...safePass, ...selectedTie];
+        }
+      } else {
+        // 予選突破者が9人以下の場合はそのまま全員順位決定戦へ
+        activeMembers = winners;
+      }
+
+      // 1人だけの場合はそのまま結果へ
+      if (activeMembers.length === 1) {
+        showResult(activeMembers);
+        return;
+      }
 
       // 1対1比較モードに切り替え
       isTieBreakMode = true;
       document.getElementById("round-title").innerText = `順位決定戦（1対1対決）`;
       document.getElementById("round-desc").innerText = `1位〜9位を正確に決めるため、好きな顔を1人ずつ選んでね！`;
 
-      // ソート処理の初期構築
       initMergeSort();
       processSort();
     }
 
-    // 効率よく順位を決めるソートアルゴリズム（マージソート準備）
+    // 順位決定戦用のソートアルゴリズム
     function initMergeSort() {
-      // 配列の各要素を1つずつの配列に分解
       sortStack = activeMembers.map(m => [m]);
+      currentMerge = null;
     }
 
     function processSort() {
-      // 全員の一体化が完了したら結果へ
       if (sortStack.length <= 1) {
         const finalSorted = sortStack[0] || activeMembers;
         showResult(finalSorted);
         return;
       }
 
-      // まだ結合されていないペアを取り出す
       if (!currentMerge) {
         const left = sortStack.shift();
         const right = sortStack.shift();
@@ -276,7 +304,7 @@
       const m1 = left[0];
       const m2 = right[0];
 
-      // 過去に同じ対戦をして勝敗が決まっていればスキップ
+      // すでに勝敗が決まっていればスキップ
       if (compareResults[`${m1.id}_${m2.id}`]) {
         const winnerId = compareResults[`${m1.id}_${m2.id}`];
         if (winnerId === m1.id) {
@@ -288,12 +316,10 @@
         return;
       }
 
-      // 未対戦の場合は画面に出してユーザーに選ばせる
+      // 未対戦の場合は一騎打ち画面へ
       currentPair = [m1, m2];
       showPage();
     }
-
-    let currentMerge = null;
 
     // 結果画面の表示 (1位〜9位)
     function showResult(sortedList) {
@@ -303,12 +329,13 @@
       const container = document.getElementById("result-container");
       container.innerHTML = "";
 
-      // 得点されなかった人も含めて全体の並びを作成
-      const remaining = members.filter(m => !sortedList.some(s => s.id === m.id));
-      const fullList = [...sortedList, ...remaining];
+      // 一対一対決で決定した1〜9位を取得
+      const top9 = sortedList.slice(0, 9);
 
-      // TOP 9 を抽出して表示
-      const top9 = fullList.slice(0, 9);
+      if (top9.length === 0) {
+        container.innerHTML = "<p style='grid-column: span 3;'>誰も選ばれませんでした💦</p>";
+        return;
+      }
 
       top9.forEach((m, index) => {
         const card = document.createElement("div");
