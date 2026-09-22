@@ -109,12 +109,11 @@
     ];
 
     let currentRoundCandidates = []; // 現在のラウンドの候補者
-    let selectedCandidates = [];     // 選ばれた候補者
+    let selectedCandidates = [];     // 各ラウンドで選ばれた候補者
     let currentPage = 0;
     const pageSize = 4;
     let scores = {};                 // メンバーごとの獲得ポイント
     let round = 1;                   // ラウンド数
-    let isTieBreak = false;          // 同点決定戦（延長戦）モードかどうか
 
     // 初期化
     function initApp() {
@@ -167,57 +166,65 @@
 
     // 1つのラウンドが終わったときの処理
     function finishRound() {
-      // 得点順にソートして判定
-      const sorted = [...members].sort((a, b) => scores[b.id] - scores[a.id]);
+      // 1点以上獲得したメンバーのみを対象にする
+      const activeMembers = members.filter(m => scores[m.id] > 0);
 
-      // TOP9ボーダーライン（9位と10位）および TOP9内部で同点があるかチェック
-      let hasTie = false;
+      // 得点が高い順にソート
+      const sortedActive = [...activeMembers].sort((a, b) => scores[b.id] - scores[a.id]);
 
-      // 1) 9位と10位が同点かチェック
-      if (sorted.length >= 10 && scores[sorted[8].id] === scores[sorted[9].id]) {
-        hasTie = true;
-      }
-
-      // 2) TOP9の中で同点（順位が未確定）があるかチェック
-      for (let i = 0; i < 8; i++) {
-        if (scores[sorted[i].id] === scores[sorted[i+1].id]) {
-          hasTie = true;
-          break;
-        }
-      }
-
-      // 同点がなく、すでに選考が十分行われている場合は結果画面へ
-      if (!hasTie && round > 1) {
+      // 得点保持者が9人以下、または候補がこれ以上増えない場合
+      if (sortedActive.length <= 9 && round > 1) {
         showResult();
         return;
       }
 
-      // 同点がある、または選考継続の場合
-      round++;
+      // TOP9（または1点以上の獲得者の中）で同点があるかチェック
+      let hasTieInTop = false;
+      const checkLimit = Math.min(sortedActive.length, 9);
 
-      if (hasTie) {
-        isTieBreak = true;
-        document.getElementById("round-title").innerText = `好きな顔選抜 (順位決定・延長戦 第${round - 1}回)`;
-        document.getElementById("round-desc").innerText = `同点のメンバーがいます！さらに好きな顔を選んで順位を決定しよう！`;
-        
-        // 同点になっている人たちを中心に次のラウンドの候補にする
-        // 選ばれた人、またはTOP付近の同点者を次の候補へ
-        if (selectedCandidates.length >= 2) {
-          currentRoundCandidates = [...selectedCandidates].sort(() => Math.random() - 0.5);
-        } else {
-          // 選ばれた人が少なすぎる場合は上位同点組を集めて再戦
-          const tieScore = scores[sorted[8].id];
-          const tieGroup = sorted.filter(m => Math.abs(scores[m.id] - tieScore) <= 1);
-          currentRoundCandidates = [...tieGroup].sort(() => Math.random() - 0.5);
+      // 順位決定用の比較（1位〜TOP9ボーダーラインまで同点があるか）
+      for (let i = 0; i < checkLimit - 1; i++) {
+        if (scores[sortedActive[i].id] === scores[sortedActive[i+1].id]) {
+          hasTieInTop = true;
+          break;
         }
+      }
+      // 9位と10位（ボーダー付近）が同点かチェック
+      if (sortedActive.length >= 10 && scores[sortedActive[8].id] === scores[sortedActive[9].id]) {
+        hasTieInTop = true;
+      }
+
+      // 同点がなく、すでに本選を通過している場合は結果へ
+      if (!hasTieInTop && round > 1) {
+        showResult();
+        return;
+      }
+
+      // 次のラウンドへ進む（1点以上のメンバー、または選ばれたメンバーのみ）
+      round++;
+      
+      if (hasTieInTop && round > 2) {
+        document.getElementById("round-title").innerText = `好きな顔選抜 (延長戦 第${round - 2}回)`;
+        document.getElementById("round-desc").innerText = `1位〜9位を確定させるため、同点のメンバー同士で決着をつけよう！`;
       } else {
         document.getElementById("round-title").innerText = `好きな顔選抜 (本選 第${round - 1}回戦)`;
         document.getElementById("round-desc").innerText = `選ばれたメンバーの中からさらに好きな顔を選んでね！`;
-        currentRoundCandidates = [...selectedCandidates].sort(() => Math.random() - 0.5);
       }
 
+      // 次のラウンドの対戦相手は「1点以上獲得した人（または直前で選ばれた人）」のみ
+      const nextCandidates = selectedCandidates.length > 0 ? selectedCandidates : sortedActive;
+      
+      // 選択されなかった0点の人々は脱落
+      currentRoundCandidates = [...nextCandidates].sort(() => Math.random() - 0.5);
       selectedCandidates = [];
       currentPage = 0;
+
+      // 万が一候補が1人以下になったら終了
+      if (currentRoundCandidates.length <= 1) {
+        showResult();
+        return;
+      }
+
       showPage();
     }
 
@@ -229,8 +236,13 @@
       const container = document.getElementById("result-container");
       container.innerHTML = "";
 
-      // 得点が高い順にソート（同点がある場合も確実に対応）
-      const sortedMembers = [...members].sort((a, b) => scores[b.id] - scores[a.id]);
+      // 得点が高い順（同点の場合はランダム）にソート
+      const sortedMembers = [...members].sort((a, b) => {
+        if (scores[b.id] === scores[a.id]) {
+          return Math.random() - 0.5;
+        }
+        return scores[b.id] - scores[a.id];
+      });
 
       // TOP 9 を抽出して表示
       const top9 = sortedMembers.slice(0, 9);
