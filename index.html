@@ -50,7 +50,7 @@
   </div>
 
   <script>
-    // メンバーのデータリスト (あなたの作ったリストをここに貼ります)
+    // メンバーのデータリスト
     const members = [
       { id: 2, name: "浅井乃我", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-56-53-23_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
       { id: 3, name: "安嶋秀生", img: "https://raw.githubusercontent.com/machall3/jr_sukigao/main/Screenshot_2026-09-22-00-57-12-17_40deb401b9ffe8e1df2f1cc5ba480b12.jpg" },
@@ -126,7 +126,8 @@
     let activeMembers = [];
     let sortStack = [];              // マージソート用の作業用スタック
     let currentPair = null;          // 現在1対1で比較中の2人
-    let compareResults = {};         // 比較結果の記憶 [idA_idB]: 勝者のID
+    let compareResults = {};         // 勝敗記憶用 [勝者ID_敗者ID]: true
+    let currentMerge = null;
 
     // 初期化
     function initApp() {
@@ -196,9 +197,19 @@
         const winnerId = parseInt(selectedCards[0].dataset.id);
         const loserId = currentPair.find(m => m.id !== winnerId).id;
         
-        // どちらが勝ったかを記録（ポイントではなく勝敗記録）
-        compareResults[`${winnerId}_${loserId}`] = winnerId;
-        compareResults[`${loserId}_${winnerId}`] = winnerId;
+        // 勝敗を正しく記録（winnerIdがloserIdに勝った）
+        compareResults[`${winnerId}_${loserId}`] = true;
+
+        // 選ばれた人を現在のマージ済み配列に追加
+        const winner = currentPair.find(m => m.id === winnerId);
+        currentMerge.merged.push(winner);
+
+        // leftまたはrightから選ばれた人を取り除く
+        if (currentMerge.left[0] && currentMerge.left[0].id === winnerId) {
+          currentMerge.left.shift();
+        } else if (currentMerge.right[0] && currentMerge.right[0].id === winnerId) {
+          currentMerge.right.shift();
+        }
 
         // 次の比較へ
         processSort();
@@ -224,7 +235,7 @@
         return;
       }
 
-      // 予選の得点順にざっくり並べる（同じ得点同士の順位をこれから1対1で決める）
+      // 予選の得点順に並べる
       activeMembers.sort((a, b) => scores[b.id] - scores[a.id]);
 
       // 1対1比較モードに切り替え
@@ -237,21 +248,18 @@
       processSort();
     }
 
-    // 効率よく順位を決めるソートアルゴリズム（マージソート準備）
+    // 効率よく順位を決めるソートアルゴリズム
     function initMergeSort() {
-      // 配列の各要素を1つずつの配列に分解
       sortStack = activeMembers.map(m => [m]);
     }
 
     function processSort() {
-      // 全員の一体化が完了したら結果へ
       if (sortStack.length <= 1) {
         const finalSorted = sortStack[0] || activeMembers;
         showResult(finalSorted);
         return;
       }
 
-      // まだ結合されていないペアを取り出す
       if (!currentMerge) {
         const left = sortStack.shift();
         const right = sortStack.shift();
@@ -276,24 +284,23 @@
       const m1 = left[0];
       const m2 = right[0];
 
-      // 過去に同じ対戦をして勝敗が決まっていればスキップ
+      // 過去の対戦記憶チェック（m1が勝っている場合）
       if (compareResults[`${m1.id}_${m2.id}`]) {
-        const winnerId = compareResults[`${m1.id}_${m2.id}`];
-        if (winnerId === m1.id) {
-          merged.push(left.shift());
-        } else {
-          merged.push(right.shift());
-        }
+        merged.push(left.shift());
+        processSort();
+        return;
+      }
+      // 過去の対戦記憶チェック（m2が勝っている場合）
+      if (compareResults[`${m2.id}_${m1.id}`]) {
+        merged.push(right.shift());
         processSort();
         return;
       }
 
-      // 未対戦の場合は画面に出してユーザーに選ばせる
+      // 未対戦の場合は画面に出して選ばせる
       currentPair = [m1, m2];
       showPage();
     }
-
-    let currentMerge = null;
 
     // 結果画面の表示 (1位〜9位)
     function showResult(sortedList) {
@@ -303,7 +310,6 @@
       const container = document.getElementById("result-container");
       container.innerHTML = "";
 
-      // 得点されなかった人も含めて全体の並びを作成
       const remaining = members.filter(m => !sortedList.some(s => s.id === m.id));
       const fullList = [...sortedList, ...remaining];
 
